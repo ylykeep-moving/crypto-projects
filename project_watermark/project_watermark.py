@@ -1,87 +1,89 @@
 import cv2
 import numpy as np
-from scipy.fftpack import dct, idct
 import os
 
-# ========== watermark_embed.py ==========
-def embed_watermark(host_img_path, watermark_img_path, alpha=10):
-    host = cv2.imread(host_img_path, cv2.IMREAD_GRAYSCALE)
-    watermark = cv2.imread(watermark_img_path, cv2.IMREAD_GRAYSCALE)
-    watermark = cv2.resize(watermark, (32, 32))
 
-    h_dct = dct(dct(host.astype(float), axis=0, norm='ortho'), axis=1, norm='ortho')
-    wm_dct = watermark / 255.0
+def embed_watermark(image, watermark_text):
+    """嵌入文字水印到图像中"""
+    watermark = np.zeros_like(image)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    position = (30, 60)
+    font_scale = 1.5
+    thickness = 2
+    cv2.putText(watermark, watermark_text, position, font, font_scale, (255, 255, 255), thickness)
 
-    h_dct[100:132, 100:132] += alpha * wm_dct
-    watermarked = idct(idct(h_dct, axis=1, norm='ortho'), axis=0, norm='ortho')
-
-    return np.clip(watermarked, 0, 255).astype(np.uint8)
-
-
-# ========== watermark_extract.py ==========
-def extract_watermark(watermarked_img_path, original_img_path, alpha=10):
-    watermarked = cv2.imread(watermarked_img_path, cv2.IMREAD_GRAYSCALE)
-    original = cv2.imread(original_img_path, cv2.IMREAD_GRAYSCALE)
-
-    w_dct = dct(dct(watermarked.astype(float), axis=0, norm='ortho'), axis=1, norm='ortho')
-    o_dct = dct(dct(original.astype(float), axis=0, norm='ortho'), axis=1, norm='ortho')
-
-    wm_dct = (w_dct[100:132, 100:132] - o_dct[100:132, 100:132]) / alpha
-    wm_img = np.clip(wm_dct * 255.0, 0, 255).astype(np.uint8)
-
-    return wm_img
+    # 图像融合：原图 + 水印（半透明）
+    watermarked = cv2.addWeighted(image, 1.0, watermark, 0.4, 0)
+    return watermarked, watermark
 
 
-# ========== attacks.py ==========
-def flip_attack(img):
-    return cv2.flip(img, 1)
-
-def shift_attack(img, dx=20, dy=10):
-    M = np.float32([[1, 0, dx], [0, 1, dy]])
-    return cv2.warpAffine(img, M, (img.shape[1], img.shape[0]))
-
-def crop_attack(img, crop_size=50):
-    h, w = img.shape
-    return img[crop_size:h-crop_size, crop_size:w-crop_size]
-
-def contrast_attack(img, factor=1.5):
-    return np.clip(img * factor, 0, 255).astype(np.uint8)
-
-def gaussian_blur_attack(img, ksize=5):
-    return cv2.GaussianBlur(img, (ksize, ksize), 0)
+def extract_watermark(watermarked, original):
+    """提取水印：对比差异"""
+    diff = cv2.absdiff(watermarked, original)
+    return diff
 
 
-# ========== test_main.py ==========
-def ensure_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+def apply_robustness_tests(image):
+    """对图像执行各种扰动操作"""
+    results = {}
+
+    # 翻转
+    results["flipped_horizontal"] = cv2.flip(image, 1)
+
+    # 平移
+    rows, cols = image.shape[:2]
+    M = np.float32([[1, 0, 30], [0, 1, 30]])
+    results["translated"] = cv2.warpAffine(image, M, (cols, rows))
+
+    # 截取（裁剪中心区域）
+    h, w = image.shape[:2]
+    results["cropped"] = image[h // 4:3 * h // 4, w // 4:3 * w // 4]
+
+    # 调整对比度
+    results["contrast_adjusted"] = cv2.convertScaleAbs(image, alpha=1.8, beta=20)
+
+    return results
+
+
+def save_images(images_dict, prefix):
+    os.makedirs(prefix, exist_ok=True)
+    for name, img in images_dict.items():
+        cv2.imwrite(f"{prefix}/{name}.png", img)
+
 
 def main():
-    host = "images/host.jpg"
-    wm = "images/watermark.png"
-    output_dir = "images/output"
-    ensure_dir(output_dir)
+    # === 加载图像 ===
+    original = cv2.imread('input.jpg')
+    if original is None:
+        print("无法读取 input.jpg，请放一张图片在程序目录下并重命名为 input.jpg")
+        return
 
-    watermarked = embed_watermark(host, wm)
-    cv2.imwrite(f"{output_dir}/watermarked.jpg", watermarked)
+    # === 嵌入水印 ===
+    watermarked, watermark = embed_watermark(original.copy(), "WATERMARK")
+    cv2.imwrite("watermarked.png", watermarked)
 
-    # 攻击
-    flipped = flip_attack(watermarked)
-    shifted = shift_attack(watermarked)
-    cropped = crop_attack(watermarked)
-    contrast = contrast_attack(watermarked)
-    blurred = gaussian_blur_attack(watermarked)
+    # === 提取水印 ===
+    extracted = extract_watermark(watermarked, original)
+    cv2.imwrite("extracted_watermark.png", extracted)
 
-    # 保存攻击图像
-    cv2.imwrite(f"{output_dir}/flipped.jpg", flipped)
-    cv2.imwrite(f"{output_dir}/shifted.jpg", shifted)
-    cv2.imwrite(f"{output_dir}/cropped.jpg", cropped)
-    cv2.imwrite(f"{output_dir}/contrast.jpg", contrast)
-    cv2.imwrite(f"{output_dir}/blurred.jpg", blurred)
+    # === 执行鲁棒性变换 ===
+    transformed_images = apply_robustness_tests(watermarked)
+    save_images(transformed_images, "robustness_outputs")
 
-    # 提取水印
-    extracted = extract_watermark(f"{output_dir}/watermarked.jpg", host)
-    cv2.imwrite(f"{output_dir}/extracted.jpg", extracted)
+    # === 对鲁棒性图像尝试水印提取 ===
+    for name, img in transformed_images.items():
+        # 尺寸不一致时，调整为原图尺寸再提取
+        if img.shape != original.shape:
+            print(f"[警告] {name} 尺寸不同，已 resize 后再提取水印。")
+            resized = cv2.resize(img, (original.shape[1], original.shape[0]))
+            recovered = extract_watermark(resized, original)
+        else:
+            recovered = extract_watermark(img, original)
+
+        cv2.imwrite(f"robustness_outputs/extracted_{name}.png", recovered)
+
+    print("所有处理完成，结果已保存。")
+
 
 if __name__ == "__main__":
     main()
