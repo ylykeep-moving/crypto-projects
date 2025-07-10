@@ -299,7 +299,7 @@ component main = Main();
 
 我们采取线上平台的验证：
 
-![080d2fe8413a9c2157b012c0e81839b](D:\crypto-projects\poseidon2_circom_project\poseidon2_circom_project\assets\080d2fe8413a9c2157b012c0e81839b.png)
+![在线验证](D:\crypto-projects\poseidon2_circom_project\poseidon2_circom_project\assets\在线验证.png)
 
 ### 分析：
 

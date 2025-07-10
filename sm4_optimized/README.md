@@ -111,13 +111,13 @@ int main() {
 
 这里展示之前没有优化的实验测试结果：
 
-![sm4优化之前](D:\crypto-projects\sm4_optimized\assets\sm4优化之前.png)
+![SM4优化之前](D:\crypto-projects\sm4_optimized\assets\SM4优化之前-1752111731246-1.png)
 
 这里是未优化的实验结果，加密时间是$1.75*10^{-5}$ s
 
 之后我们查看优化后的测试时间：
 
-![sm4优化之后](D:\crypto-projects\sm4_optimized\assets\sm4优化之后.png)
+![SM4优化之后](D:\crypto-projects\sm4_optimized\assets\SM4优化之后-1752111736888-3.png)
 
 显然，优化后的实验结果是$8.4 * 10^{-6}$ s
 
