@@ -1,0 +1,62 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\crypto-projects\\SM2\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E68EC3F3-36B8-403E-8B3A-D4B2FC2393F3}|SM2\\SM2.vcxproj|D:\\crypto-projects\\SM2\\SM2\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{E68EC3F3-36B8-403E-8B3A-D4B2FC2393F3}|SM2\\SM2.vcxproj|solutionrelative:SM2\\main.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{E68EC3F3-36B8-403E-8B3A-D4B2FC2393F3}|SM2\\SM2.vcxproj|D:\\crypto-projects\\SM2\\SM2\\sm3_optimized.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{E68EC3F3-36B8-403E-8B3A-D4B2FC2393F3}|SM2\\SM2.vcxproj|solutionrelative:SM2\\sm3_optimized.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "main.cpp",
+              "DocumentMoniker": "D:\\crypto-projects\\SM2\\SM2\\main.cpp",
+              "RelativeDocumentMoniker": "SM2\\main.cpp",
+              "ToolTip": "D:\\crypto-projects\\SM2\\SM2\\main.cpp",
+              "RelativeToolTip": "SM2\\main.cpp",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-07-11T05:37:39.991Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "sm3_optimized.h",
+              "DocumentMoniker": "D:\\crypto-projects\\SM2\\SM2\\sm3_optimized.h",
+              "RelativeDocumentMoniker": "SM2\\sm3_optimized.h",
+              "ToolTip": "D:\\crypto-projects\\SM2\\SM2\\sm3_optimized.h",
+              "RelativeToolTip": "SM2\\sm3_optimized.h",
+              "ViewState": "AgIAAC0AAAAAAAAAAAAAADQAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-07-11T05:37:26.134Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c64b9c2-e352-428e-a56d-0ace190b99a6}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
