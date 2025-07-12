@@ -79,17 +79,175 @@ V0 = 7380166f 4914b2b9 172442d7 da8a0600
 
 # 三、C++ 实现细节
 
-## 3.1 数据结构设计
+### SM3 哈希函数作用
 
-- `typedef uint32_t u32;` 为 32 位变量简化表达
-- 使用 `std::vector<u8>` 存储消息与哈希输出
-- 避免指针操作，提升安全性
+SM3 接收任意长度的消息输入，输出一个固定长度的 **256-bit (32字节)** 哈希值，用于：
 
-## 3.2 模块划分
+- 数据完整性校验（如文件校验码）
+- 密码学签名
+- 区块链中的数据哈希
+- 任何需要抗碰撞哈希的场景
 
-- `sm3()`：主哈希函数
-- `sm3_compress()`：压缩函数，对 64 字节块处理
-- `FF()`, `GG()`, `P0()`, `P1()`：逻辑/置换函数
+------
+
+## 代码结构详解
+
+### 1. **类型定义与常量**
+
+```cpp
+using u8 = uint8_t;
+using u32 = uint32_t;
+using u64 = uint64_t;
+```
+
+- 简写类型定义，方便书写。
+- `u8` 表示 8 位无符号整数，`u32` 表示 32 位无符号整数，以此类推。
+
+------
+
+### 2. **基本宏和函数**
+
+```cpp
+#define ROTL(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+#define P0(x) ((x) ^ ROTL((x), 9) ^ ROTL((x), 17))
+#define P1(x) ((x) ^ ROTL((x), 15) ^ ROTL((x), 23))
+```
+
+- **ROTL**：循环左移（用于掩码运算）
+- **P0/P1**：SM3 定义的置换函数，用于扩展消息（message expansion）
+
+------
+
+### 3. **布尔函数 FF 和 GG**
+
+```cpp
+inline u32 FF(u32 x, u32 y, u32 z, int j)
+inline u32 GG(u32 x, u32 y, u32 z, int j)
+```
+
+- `FF` 和 `GG` 是用于 SM3 的布尔函数：
+  - 前16轮是简单的 XOR
+  - 后48轮使用逻辑与或运算（增强非线性）
+
+------
+
+### 4. **轮常量函数 Tj**
+
+```cpp
+inline constexpr u32 Tj(int j)
+```
+
+- 为每一轮提供常量值：
+  - 0–15：`0x79cc4519`
+  - 16–63：`0x7a879d8a`
+
+------
+
+### 5. **消息压缩函数 `sm3_compress`**
+
+```cpp
+inline void sm3_compress(u32 V[8], const u8 block[64])
+```
+
+**核心函数**：处理每一个 512-bit（64字节）分组。
+
+流程如下：
+
+1. **消息扩展**：
+   - `W[68]`：主扩展数组
+   - `W1[64]`：辅助数组
+2. **初始化寄存器**：
+   - `A`~`H` 对应 SM3 算法中的 8 个工作寄存器
+3. **64轮迭代运算**：
+   - 使用 FF/GG、P0、Tj 等函数进行一系列混合操作
+4. **更新中间变量 V[8]**：
+   - `V[i] ^= A~H`：将结果反馈回 V，类似于 SHA 家族
+
+------
+
+### 6. **最终哈希函数 `sm3`**
+
+```cpp
+inline std::vector<u8> sm3(const u8* msg, size_t len)
+```
+
+这是 SM3 的主接口：
+
+1. **初始化 V（初始向量 IV）**：8个常量组成
+2. **填充消息**：
+   - 添加 `0x80`
+   - 补足到满足 `(len + padding + 8) % 64 == 0`
+   - 最后加上原始消息长度（64 位表示）
+3. **分块压缩**：
+   - 每 64 字节调用一次 `sm3_compress`
+4. **输出 digest（摘要）**：
+   - 将最终的 V[8] 按照字节输出为 32 字节哈希值
+
+------
+
+## 最终输出结果
+
+该 `sm3()` 函数会返回一个 `std::vector<u8>`，包含 32 字节的哈希值。
+
+你可以用它像这样：
+
+```cpp
+std::string input = "abc";
+auto hash = sm3((const u8*)input.data(), input.size());
+```
+
+------
+
+### 示例输入输出
+
+**输入**：字符串 `"abc"`
+ **输出（SM3 哈希）**：
+
+```
+66C7F0F462EEEDD9D1F2D46BDC10E4E24167C4875CF2F7A2297DA02B8F4BA8E0
+```
+
+
+
+之后我们进行测试：
+
+```c
+#include <iostream>
+#include <iomanip>
+#include <chrono>
+#include "sm3_optimized.h"
+
+int main() {
+    const size_t msg_size = 4 * 1024 * 1024;  // 每条消息大小：4MB
+    const int loops = 50;                     // 重复处理 50 次，总量 200MB
+
+    std::vector<u8> msg(msg_size, 0x61);      // 填充内容 'a'
+
+    // 功能验证
+    auto digest = sm3((const u8*)"abc", 3);
+    std::cout << "SM3(\"abc\") = ";
+    for (auto b : digest)
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b;
+    std::cout << std::endl;
+
+    // 性能测试
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < loops; ++i) {
+        volatile auto hash = sm3(msg.data(), msg_size);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    double seconds = std::chrono::duration<double>(end - start).count();
+    double total_mb = (double)(msg_size * loops) / (1024 * 1024);
+    double throughput = total_mb / seconds;
+
+    std::cout << "SM3 throughput: " << throughput << " MB/s" << std::endl;
+    return 0;
+}
+
+```
+
+
 
 ------
 
@@ -164,7 +322,7 @@ Throughput = Total_Data_Size / Duration_Seconds (MB/s)
 
 - 会使用 **SIMD** 指令（如 AVX/SSE）对数据块并行处理
 
-![release优化](D:\crypto-projects\SM2\release优化.png)
+![release优化](D:\crypto-projects\SM3\assets\release优化.png)
 
 可见吞吐率提升了很多！
 
@@ -173,5 +331,4 @@ Throughput = Total_Data_Size / Duration_Seconds (MB/s)
 1. **SM3 算法结构清晰**，与 SHA-256 相似但更复杂，使用国产 SM3 曲线参数
 2. **手写实现易于理解其底层设计**
 3. **通过编译器优化和数据结构设计**，性能显著提升至 200+ MB/s
-4. **仍有进一步提升空间**，如 SIMD/多线程加速
 

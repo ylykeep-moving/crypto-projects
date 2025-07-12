@@ -1,4 +1,4 @@
-# SM2数字签名算法的Python实现与优化实验报告
+# README
 
 ## 一、实验目的
 
@@ -25,7 +25,6 @@ SM2是基于椭圆曲线密码体制（ECC）的一种中国国家密码算法�
 - 编程语言：Python 3.10+
 - 编辑器：Visual Studio Code / Typora
 - 哈希函数：SHA256（模拟SM3）
-- 库依赖：无（纯Python实现）
 
 ## 四、实现过程
 
