@@ -2,7 +2,7 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>D:\code-learning\cpp\SM4\x64\Debug\SM4.exe</FullPath>
+      <FullPath>D:\crypto-projects\sm4-cpp\x64\Debug\SM4.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

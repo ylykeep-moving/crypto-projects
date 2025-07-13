@@ -1,2 +1,3 @@
 ﻿  sm4.cpp
-  SM4.vcxproj -> D:\code-learning\cpp\SM4\x64\Debug\SM4.exe
+  LINK : 没有找到 D:\crypto-projects\sm4-cpp\x64\Debug\SM4.exe 或上一个增量链接没有生成它；正在执行完全链接
+  SM4.vcxproj -> D:\crypto-projects\sm4-cpp\x64\Debug\SM4.exe
