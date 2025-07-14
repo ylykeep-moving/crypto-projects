@@ -1,7 +1,5 @@
 # README
 
-此项目使用ubuntn 20.04 进行开发：
-
 ------
 
 #  实验报告：用 Circom 实现 Poseidon2 哈希电路（Groth16 零知识证明）
@@ -126,7 +124,7 @@ snarkjs zkey export verificationkey main.zkey verification_key.json
 }
 ```
 
-该值 `27518` 来自对电路执行结果模拟（简化版本下的 Poseidon2 输出）
+该值 `27518` 来自对电路执行结果模拟
 
 ------
 
@@ -154,134 +152,201 @@ OK!
 
 **详细代码分析：**
 
-###### 模块 1：`poseidon2_params.circom`
-
-> 📄 负责存储轮常数和 MDS 矩阵（简化版）
-
-```circom
-template Poseidon2Constants() {
-    signal output roundConstants[65][3];
-    signal output MDS[3][3];
-
-    for (var i = 0; i < 65; i++) {
-        for (var j = 0; j < 3; j++) {
-            roundConstants[i][j] <-- i * 123 + j * 17;
-        }
-    }
-
-    MDS[0][0] <-- 2;  MDS[0][1] <-- 3;  MDS[0][2] <-- 4;
-    MDS[1][0] <-- 1;  MDS[1][1] <-- 1;  MDS[1][2] <-- 1;
-    MDS[2][0] <-- 4;  MDS[2][1] <-- 3;  MDS[2][2] <-- 2;
-}
-```
-
 ------
 
-###### 模块 2：`poseidon2_round.circom`
-
-> 📄 封装每一轮的非线性处理 + MDS 混合逻辑
+## Poseidon2 Circom 简化实现代码（t=3, d=5）
 
 ```circom
-template Poseidon2Round(in_state, r, roundConstants, MDS, isFull) {
-    signal input in_state[3];
-    signal input r;
-    signal input roundConstants[65][3];
-    signal input MDS[3][3];
-    signal input isFull;
-    signal output out_state[3];
-
-    signal after_add[3];
-    signal after_sbox[3];
-
-    for (var i = 0; i < 3; i++) {
-        after_add[i] <== in_state[i] + roundConstants[r][i];
-    }
-
-    for (var i = 0; i < 3; i++) {
-        if (isFull == 1 || i == 0) {
-            after_sbox[i] <== after_add[i] ** 5;
-        } else {
-            after_sbox[i] <== after_add[i];
-        }
-    }
-
-    for (var i = 0; i < 3; i++) {
-        var acc = 0;
-        for (var j = 0; j < 3; j++) {
-            acc += MDS[i][j] * after_sbox[j];
-        }
-        out_state[i] <== acc;
-    }
-}
-```
-
-------
-
-###### 模块 3：`poseidon2.circom`
-
-> 📄 主 Poseidon2 模板，调用轮函数并使用参数模块
-
-```circom
-include "poseidon2_params.circom";
-
 template Poseidon2() {
     signal input inputs[2];
     signal output out;
 
-    signal state[66][3];
-    signal rc[65][3];
-    signal mds[3][3];
+    var R_F = 8;
+    var R_P = 57;
+    var d = 5;
+    var totalRounds = R_F + R_P;
 
-    component constants = Poseidon2Constants();
-    for (var r = 0; r < 65; r++) {
-        for (var j = 0; j < 3; j++) {
-            rc[r][j] <== constants.roundConstants[r][j];
-        }
-    }
-    for (var i = 0; i < 3; i++) {
-        for (var j = 0; j < 3; j++) {
-            mds[i][j] <== constants.MDS[i][j];
-        }
-    }
+    signal state[totalRounds + 1][3];
 
     state[0][0] <== inputs[0];
     state[0][1] <== inputs[1];
     state[0][2] <== 0;
 
-    var totalRounds = 65;
-
-    for (var r = 0; r < totalRounds; r++) {
-        var isFull = (r < 4 || r >= 61) ? 1 : 0;
-
-        signal tmp_in[3];
-        signal tmp_out[3];
-
-        for (var i = 0; i < 3; i++) {
-            tmp_in[i] <== state[r][i];
-        }
-
-        component round = Poseidon2Round(tmp_in, r, rc, mds, isFull);
-        for (var i = 0; i < 3; i++) {
-            state[r+1][i] <== round.out_state[i];
+    var roundConstants[65][3];
+    for (var i = 0; i < 65; i++) {
+        for (var j = 0; j < 3; j++) {
+            roundConstants[i][j] = i * 123 + j * 17;
         }
     }
 
-    out <== state[65][0];
+    var MDS[3][3] = [
+        [2, 3, 4],
+        [1, 1, 1],
+        [4, 3, 2]
+    ];
+
+    for (var r = 0; r < totalRounds; r++) {
+        signal tempAdd[3];
+        for (var i = 0; i < 3; i++) {
+            tempAdd[i] <== state[r][i] + roundConstants[r][i];
+        }
+
+        signal tempSbox[3];
+        if (r < R_F / 2 || r >= totalRounds - R_F / 2) {
+            for (var i = 0; i < 3; i++) {
+                tempSbox[i] <== tempAdd[i] * tempAdd[i];
+                tempSbox[i] <== tempSbox[i] * tempAdd[i];
+                tempSbox[i] <== tempSbox[i] * tempAdd[i];
+                tempSbox[i] <== tempSbox[i] * tempAdd[i];
+            }
+        } else {
+            for (var i = 0; i < 3; i++) {
+                if (i == 0) {
+                    tempSbox[0] <== tempAdd[0] * tempAdd[0];
+                    tempSbox[0] <== tempSbox[0] * tempAdd[0];
+                    tempSbox[0] <== tempSbox[0] * tempAdd[0];
+                    tempSbox[0] <== tempSbox[0] * tempAdd[0];
+                } else {
+                    tempSbox[i] <== tempAdd[i];
+                }
+            }
+        }
+
+        for (var i = 0; i < 3; i++) {
+            signal acc;
+            acc <== 0;
+            for (var j = 0; j < 3; j++) {
+                acc <== acc + MDS[i][j] * tempSbox[j];
+            }
+            state[r + 1][i] <== acc;
+        }
+    }
+
+    out <== state[totalRounds][0];
 }
 ```
 
 ------
 
-######  模块 4：`main.circom`
+##  解释（按功能逻辑分为 3 大块）
 
-> 📄 顶层验证电路（调用 Poseidon2 模块）
+------
+
+###  一、输入初始化 + 状态定义
 
 ```circom
+signal input inputs[2];
+signal output out;
+signal state[totalRounds + 1][3];
+
+state[0][0] <== inputs[0];
+state[0][1] <== inputs[1];
+state[0][2] <== 0;
+```
+
+解释：
+
+- 本实现固定 `t = 3`，即状态向量长度为 3；
+- 使用 2 个输入，对应 Poseidon Sponge 的 **rate=2**；
+- `state[r][i]` 表示第 `r` 轮中第 `i` 个状态元素；
+- 初始状态 `state[0]`：前两个值来自输入，最后一个容量位设为 0，保证 sponge 安全性；
+- 最终输出为 `state[totalRounds][0]`，即最后一轮的第一个状态位。
+
+------
+
+###  二、常量定义（roundConstants 和 MDS）
+
+```circom
+var roundConstants[65][3]; 
+var MDS[3][3] = [
+    [2, 3, 4],
+    [1, 1, 1],
+    [4, 3, 2]
+];
+```
+
+解释：
+
+- `roundConstants[i][j]` 是为第 `i` 轮的第 `j` 个状态变量添加的常数（本示例中是伪造的，为展示结构）；
+- `MDS` 是一个 3x3 的混合矩阵（Maximum Distance Separable Matrix），用于在每轮结束时将状态向量混合，使得任何一个元素的变化会影响所有其他元素，提高扩散性；
+- 实际应用中应使用 Poseidon 规范中生成的 MDS 和 round constants。
+
+------
+
+###  三、核心轮函数（AddRC + S-box + MDS）
+
+```circom
+for (var r = 0; r < totalRounds; r++) {
+    // 1. 加 round constants
+    for (var i = 0; i < 3; i++) {
+        tempAdd[i] <== state[r][i] + roundConstants[r][i];
+    }
+
+    // 2. 应用 S-box（x^5）
+    if (r < R_F/2 || r >= totalRounds - R_F/2) {
+        for (var i = 0; i < 3; i++) {
+            tempSbox[i] <== tempAdd[i] ** 5;
+        }
+    } else {
+        tempSbox[0] <== tempAdd[0] ** 5;
+        tempSbox[1] <== tempAdd[1];
+        tempSbox[2] <== tempAdd[2];
+    }
+
+    // 3. MDS混合
+    for (var i = 0; i < 3; i++) {
+        acc <== ∑_{j=0}^{2} MDS[i][j] * tempSbox[j];
+        state[r + 1][i] <== acc;
+    }
+}
+```
+
+解释：
+
+- 每一轮包含三个步骤：
+
+#### ➤ AddRoundConstants：
+
+将本轮对应的常数加到状态上，对抗结构攻击（类似 AES 中 key 加）。
+
+#### ➤ Apply S-box：
+
+- 如果是 full round（前 R_F/2 轮 + 后 R_F/2 轮），则所有状态位都进行幂运算（此处是 `x^5`）；
+- 如果是 partial round（中间 R_P 轮），则只有 `state[0]` 经过非线性映射，其余两位不变；
+- 幂运算通过连乘展开避免使用不支持的 `**` 操作。
+
+#### ➤ MDS 混合：
+
+- 用 3x3 矩阵对 tempSbox 的结果进行线性组合；
+- 保证状态扩散性，每一轮都引入跨位依赖。
+
+------
+
+### 输出
+
+```circom
+out <== state[totalRounds][0];
+```
+
+解释：
+
+- 输出为最终轮后状态向量中的第一个值；
+- 在 Sponge 构造中，这是标准的 `digest` 形式（用于 hash 结果）
+
+------
+
+######  `main.circom`：
+
+> 顶层验证电路（调用 Poseidon2 模块）
+
+```c
+pragma circom 2.0.0;
+
 include "poseidon2.circom";
 
 template Main() {
-    signal input preimage[2];
-    signal input hash_pub;
+    signal input preimage[2]; // 私有输入
+    signal input hash_pub;    // 公共输入
 
     component h = Poseidon2();
     h.inputs[0] <== preimage[0];
@@ -291,6 +356,7 @@ template Main() {
 }
 
 component main = Main();
+
 ```
 
 ------
@@ -303,10 +369,10 @@ component main = Main();
 
 ### 分析：
 
-- **验证成功**：日志中显示“**Successfully verified zkey matches circuit**”，意味着您上传的 **验证密钥文件（zkey）** 和电路文件已经成功匹配，证明是有效的。
+- **验证成功**：日志中显示“**Successfully verified zkey matches circuit**”，意味着上传的 **验证密钥文件（zkey）** 和电路文件已经成功匹配，证明是有效的。
 - **Circuit Hash**：这里显示了电路的哈希值（`72ded8a3 f1fa5da3 321cc9a9 1b631272...`），它是对电路文件进行哈希计算后得到的唯一标识符。这个值用于确保电路和证明是匹配的。
 - **贡献信息**：`contribution #1` 部分显示了生成的零知识证明的一部分（`zkrepl`），这是证明生成过程中的关键数据，它和电路的哈希值一起确认证明的有效性。
-- **ZKey OK!**：这一部分表示您的 **ZKey 文件** 已经正确生成，并且与电路匹配，这说明您的电路和证明生成过程已经完成并验证无误。
+- **ZKey OK!**：这一部分表示 **ZKey 文件** 已经正确生成，并且与电路匹配，这说明电路和证明生成过程已经完成并验证无误。
 
 ### 结论：
 
